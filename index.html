@@ -22,7 +22,7 @@
             }).addTo(map)
 
             function renderCircle(latLon) {
-                let c = L.circle(latLon, {radius: 10000})
+                let c = L.circle(latLon, {radius: 20000})
                 c.addTo(map)
                 animateCircle.call(c)
             }
@@ -32,9 +32,9 @@
                 if (r > 200000) {
                     this.removeFrom(map)
                 } else {
-                    r *= 1.4
+                    r *= 1.1
                     this.setRadius(r)
-                    setTimeout(animateCircle.bind(this), 25)
+                    setTimeout(animateCircle.bind(this), 15)
                 }
             }
 
