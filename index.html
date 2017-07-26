@@ -1,0 +1,58 @@
+<html>
+    <head>
+        <title>Live Map</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.1.0/dist/leaflet.css"
+        integrity="sha512-wcw6ts8Anuw10Mzh9Ytw4pylW8+NAD4ch3lqm9lzAsTxg0GFeJgoAtxuCLREZSC5lUXdVyo/7yfsqFjQ4S+aKw=="
+        crossorigin=""/>
+        <script src="https://unpkg.com/leaflet@1.1.0/dist/leaflet.js"
+        integrity="sha512-mNqn2Wg7tSToJhvHcqfzLMU6J4mkOImSPTxVZAdo+lcPlk+GhZmYgACEe0x35K7YzW1zJ7XyJV/TT1MrdXvMcA=="
+        crossorigin=""></script>
+    </head>
+    <body style="margin:0">
+        <div id="map" style="height:100%"></div>
+        <script type="text/javascript">
+            var map = L.map('map', {zoomSnap: 0.125}).fitBounds([
+                [20, -140],
+                [20, 160]
+            ]);
+
+            var OpenStreetMap_Mapnik = L.tileLayer('//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map)
+
+            function renderCircle(latLon) {
+                let c = L.circle(latLon, {radius: 10000})
+                c.addTo(map)
+                animateCircle.call(c)
+            }
+
+            function animateCircle() {
+                let r = this.getRadius()
+                if (r > 200000) {
+                    this.removeFrom(map)
+                } else {
+                    r *= 1.4
+                    this.setRadius(r)
+                    setTimeout(animateCircle.bind(this), 25)
+                }
+            }
+
+            function connect() {
+                let ws = new WebSocket("ws://{{ .Host }}/ws")
+                ws.onopen = (ev) => {console.log("WS OPEN:", ev)}
+                ws.onclose = (ev) => {
+                    console.log("WS CLOSE:", ev)
+                    console.log("will try to reconnect in 5 seconds")
+                    setTimeout(connect, 5000)
+                }
+                ws.onmessage = (ev) => {
+                    console.log("WS MESSAGE:", ev.data)
+                    renderCircle(JSON.parse(ev.data))
+                }
+                ws.onerror = (ev) => {console.log("WS ERROR:", ev.data, ev)}
+            }
+            connect()
+        </script>
+    </body>
+</html>
