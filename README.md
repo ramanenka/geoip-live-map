@@ -13,5 +13,5 @@ docker run -d \
     -e LOG_FILENAME=/var/log/nginx/access.log \
     -v /var/log/nginx:/var/log/nginx:ro \
     -p 8080:80 \
-    vadramanenka/geoip-live-map
+    ramanenka/geoip-live-map
 ```
