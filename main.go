@@ -46,6 +46,7 @@ func (b *broadcaster) pub(v interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	log.Printf("broadcasting %v to %d listeners\n", v, len(b.cs))
 	for _, c := range b.cs {
 		c <- v
 	}
@@ -164,6 +165,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 var upgrader = websocket.Upgrader{}
 
 func ws(w http.ResponseWriter, r *http.Request) {
+	log.Println("new websocket connection from " + r.RemoteAddr)
+	defer log.Println("websocket connection with " + r.RemoteAddr + " is closed")
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
