@@ -106,6 +106,7 @@ func main() {
 		if err := server.ListenAndServe(); err != nil {
 			log.Println(err)
 		}
+		log.Println("server goroutine has exited")
 	}()
 
 	b = &broadcaster{}
@@ -131,6 +132,7 @@ func main() {
 			}
 			b.pub([]float64{res.Location.Latitude, res.Location.Longitude})
 		}
+		log.Println("log tailing goroutine has exited")
 	}()
 
 	sigs := make(chan os.Signal)
