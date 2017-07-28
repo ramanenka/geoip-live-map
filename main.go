@@ -181,12 +181,20 @@ func ws(w http.ResponseWriter, r *http.Request) {
 
 	c := make(chan interface{})
 	b.sub(c)
-	defer b.usub(c)
+
+	go func() {
+		for {
+			if _, _, err := conn.NextReader(); err != nil {
+				b.usub(c)
+				close(c)
+				break
+			}
+		}
+	}()
 
 	for v := range c {
 		if err := conn.WriteJSON(v); err != nil {
 			log.Println(err)
-			break
 		}
 	}
 }
