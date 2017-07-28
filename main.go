@@ -48,7 +48,12 @@ func (b *broadcaster) pub(v interface{}) {
 
 	log.Printf("broadcasting %v to %d listeners\n", v, len(b.cs))
 	for _, c := range b.cs {
-		c <- v
+		// send but do not block for it
+		select {
+		case c <- v:
+		default:
+			log.Printf("failed to broadcast %v to %v as the receiving channel is busy\n", v, c)
+		}
 	}
 }
 
