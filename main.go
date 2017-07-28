@@ -46,7 +46,6 @@ func (b *broadcaster) pub(v interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	log.Printf("broadcasting %v to %d listeners\n", v, len(b.cs))
 	for _, c := range b.cs {
 		// send but do not block for it
 		select {
