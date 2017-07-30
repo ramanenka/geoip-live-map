@@ -17,51 +17,51 @@ import (
 	maxminddb "github.com/oschwald/maxminddb-golang"
 )
 
-type broadcaster struct {
-	mu sync.Mutex
-	cs []chan<- interface{}
+type hub struct {
+	mu      sync.Mutex
+	clients []*client
 }
 
-func (b *broadcaster) sub(c chan<- interface{}) {
+func (b *hub) sub(c *client) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.cs = append(b.cs, c)
+	b.clients = append(b.clients, c)
 }
 
-func (b *broadcaster) usub(c chan<- interface{}) {
+func (b *hub) usub(c *client) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	n := b.cs[:0]
-	for _, x := range b.cs {
+	n := b.clients[:0]
+	for _, x := range b.clients {
 		if x != c {
 			n = append(n, x)
 		}
 	}
-	b.cs = n
+	b.clients = n
 }
 
-func (b *broadcaster) pub(v interface{}) {
+func (b *hub) pub(v interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, c := range b.cs {
+	for _, c := range b.clients {
 		// send but do not block for it
 		select {
-		case c <- v:
+		case c.c <- v:
 		default:
 			log.Printf("failed to broadcast %v to %v as the receiving channel is busy\n", v, c)
 		}
 	}
 }
 
-func (b *broadcaster) close() {
+func (b *hub) stop() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, c := range b.cs {
-		close(c)
+	for _, c := range b.clients {
+		c.close()
 	}
 }
 
@@ -72,7 +72,7 @@ type mmrecord struct {
 	} `maxminddb:"location"`
 }
 
-var b *broadcaster
+var b *hub
 
 func main() {
 	logFilename := os.Getenv("LOG_FILENAME")
@@ -111,10 +111,9 @@ func main() {
 		if err := server.ListenAndServe(); err != nil {
 			log.Println(err)
 		}
-		log.Println("server goroutine has exited")
 	}()
 
-	b = &broadcaster{}
+	b = &hub{}
 
 	go func() {
 		wg.Add(1)
@@ -137,7 +136,6 @@ func main() {
 			}
 			b.pub([]float64{res.Location.Latitude, res.Location.Longitude})
 		}
-		log.Println("log tailing goroutine has exited")
 	}()
 
 	sigs := make(chan os.Signal)
@@ -150,6 +148,7 @@ func main() {
 	if err := server.Shutdown(context.Background()); err != nil {
 		log.Println(err)
 	}
+	b.stop()
 	wg.Wait()
 }
 
@@ -169,32 +168,16 @@ func index(w http.ResponseWriter, r *http.Request) {
 var upgrader = websocket.Upgrader{}
 
 func ws(w http.ResponseWriter, r *http.Request) {
-	log.Println("new websocket connection from " + r.RemoteAddr)
-	defer log.Println("websocket connection with " + r.RemoteAddr + " is closed")
-
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	defer conn.Close()
 
-	c := make(chan interface{})
-	b.sub(c)
-
-	go func() {
-		for {
-			if _, _, err := conn.NextReader(); err != nil {
-				b.usub(c)
-				close(c)
-				break
-			}
-		}
-	}()
-
-	for v := range c {
-		if err := conn.WriteJSON(v); err != nil {
-			log.Println(err)
-		}
+	c := &client{
+		conn: conn,
+		c:    make(chan interface{}),
 	}
+	b.sub(c)
+	go c.serve()
 }
