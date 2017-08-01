@@ -13,7 +13,7 @@ RUN set -ex \
   && rm /tmp/GeoLite2-City.tar.gz
 
 COPY index.html index.html
-COPY main.go src/github.com/ramanenka/geoip-live-map/main.go
+COPY *.go src/github.com/ramanenka/geoip-live-map/
 RUN (cd src/github.com/ramanenka/geoip-live-map && go get -v && go install -v)
 
 CMD ["geoip-live-map"]
